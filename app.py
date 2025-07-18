@@ -6,7 +6,7 @@ import requests
 import uuid
 import torch
 import whisper
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 
 st.set_page_config(page_title="Jugaadu Translator", layout="centered")
 
@@ -33,7 +33,6 @@ RECORDS_PATH = "data/records.json"
 os.makedirs(AUDIO_SAVE_DIR, exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
-# ✅ NEW: Function to save audio file
 def save_audio_file(uploaded_file, username):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     ext = uploaded_file.name.split('.')[-1]
@@ -43,22 +42,21 @@ def save_audio_file(uploaded_file, username):
         f.write(uploaded_file.read())
     return file_path, filename
 
-# Use lightweight Whisper model for best HF Spaces compatibility!
 @st.cache_resource(show_spinner="Loading Whisper model...")
 def get_whisper_model():
     import os
     os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
     os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Force CPU
-
-    import whisper
     model = whisper.load_model("tiny.en", device="cpu")
     return model
 
-
+# ✅ FIXED: Use tokenizer and model explicitly
 @st.cache_resource(show_spinner="Loading translation models...")
 def get_translator(language):
     model_name = SUPPORTED_LANGUAGES[language]["translation_model"]
-    return pipeline("translation", model=model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    return pipeline("translation", model=model, tokenizer=tokenizer)
 
 @st.cache_resource(show_spinner="Loading summarizer...")
 def get_summarizer():
