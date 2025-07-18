@@ -33,6 +33,16 @@ RECORDS_PATH = "data/records.json"
 os.makedirs(AUDIO_SAVE_DIR, exist_ok=True)
 os.makedirs("data", exist_ok=True)
 
+# ✅ NEW: Function to save audio file
+def save_audio_file(uploaded_file, username):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ext = uploaded_file.name.split('.')[-1]
+    filename = f"{username}_{timestamp}.{ext}"
+    file_path = os.path.join(AUDIO_SAVE_DIR, filename)
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.read())
+    return file_path, filename
+
 # Use lightweight Whisper model for best HF Spaces compatibility!
 @st.cache_resource(show_spinner="Loading Whisper model...")
 def get_whisper_model():
@@ -121,16 +131,15 @@ else:
     st.markdown("Upload a short voice note of your idiom (.wav, .mp3):")
     audio_file = st.file_uploader("Choose audio file", type=['wav', 'mp3'])
     if audio_file:
-        uid = str(uuid.uuid4())
-        # Preserve file extension
-        audio_path = os.path.join(AUDIO_SAVE_DIR, f"{st.session_state['username']}_{uid}.{audio_file.name.split('.')[-1]}")
-        with open(audio_path, "wb") as f:
-            f.write(audio_file.read())
-        st.success("Audio uploaded and saved.")
-        asr_model = get_whisper_model()
-        result = asr_model.transcribe(audio_path, language=SUPPORTED_LANGUAGES[language]['whisper_language'])
-        input_text = result["text"]
-        st.markdown("**Transcription:** " + input_text)
+        try:
+            audio_path, _ = save_audio_file(audio_file, st.session_state["username"])
+            st.success("Audio uploaded and saved.")
+            asr_model = get_whisper_model()
+            result = asr_model.transcribe(audio_path, language=SUPPORTED_LANGUAGES[language]['whisper_language'])
+            input_text = result["text"]
+            st.markdown("**Transcription:** " + input_text)
+        except Exception as e:
+            st.error(f"Failed to process audio: {e}")
 
 if st.button("Translate", disabled=not input_text.strip()):
     with st.spinner("Translating and generating summary..."):
